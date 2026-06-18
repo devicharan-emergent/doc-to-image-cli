@@ -63,28 +63,52 @@ def _render_pdf(path: Path, page_range: tuple[int, int], dpi: int) -> list[bytes
 
 
 def _render_docx(path: Path, page_range: tuple[int, int], dpi: int) -> list[bytes]:
-    """Without a loaded aspose-words license the rendered PNGs carry an
-    evaluation watermark — that's a deployment-level concern, not handled here."""
-    import io
+    """DOCX → PDF via LibreOffice headless → PDF → PNGs via PyMuPDF.
 
-    import aspose.words as aw
+    Requires the `libreoffice` (or `soffice`) binary on PATH. Open-source,
+    available on every Linux distro / macOS / Windows — no proprietary deps
+    and no rendering watermark. Install:
+      Debian/Ubuntu: sudo apt-get install -y libreoffice-writer
+      RHEL/Fedora:   sudo dnf install -y libreoffice-writer
+      macOS:         brew install --cask libreoffice
+    """
+    import shutil
+    import subprocess
+    import tempfile
 
-    doc = aw.Document(str(path))
-    total = doc.page_count
-    start, end = page_range
-    start = max(1, start)
-    end = total if end < 0 else min(end, total)
+    libreoffice_bin = shutil.which("libreoffice") or shutil.which("soffice")
+    if not libreoffice_bin:
+        raise FileNotFoundError(
+            "LibreOffice not on PATH — required for DOCX rendering. "
+            "Install with: sudo apt-get install -y libreoffice-writer "
+            "(Debian/Ubuntu) or `brew install --cask libreoffice` (macOS)."
+        )
 
-    options = aw.saving.ImageSaveOptions(aw.SaveFormat.PNG)
-    options.horizontal_resolution = float(dpi)
-    options.vertical_resolution = float(dpi)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        proc = subprocess.run(
+            [
+                libreoffice_bin,
+                "--headless",
+                "--convert-to", "pdf",
+                "--outdir", tmpdir,
+                str(path),
+            ],
+            capture_output=True,
+            timeout=180,
+        )
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode(errors="replace")[:500]
+            raise RuntimeError(f"LibreOffice DOCX→PDF failed: {stderr}")
 
-    pngs: list[bytes] = []
-    for page_idx in range(start - 1, end):
-        options.page_set = aw.saving.PageSet(page_idx)
-        buf = io.BytesIO()
-        doc.save(buf, options)
-        pngs.append(buf.getvalue())
+        pdf_path = Path(tmpdir) / f"{path.stem}.pdf"
+        if not pdf_path.exists():
+            raise RuntimeError(
+                f"LibreOffice ran but did not produce {pdf_path.name}. "
+                f"tmpdir contents: {[p.name for p in Path(tmpdir).iterdir()]}"
+            )
+
+        # PyMuPDF already does PDF → PNG rendering — reuse it.
+        return _render_pdf(pdf_path, page_range, dpi)
     return pngs
 
 
@@ -142,12 +166,15 @@ def convert(
         else:
             rendered = _render_docx(input_file, page_range, dpi)
     except ImportError as e:
-        lib = "pymupdf" if suffix == ".pdf" else "aspose-words"
         typer.secho(
-            f"Error: {lib} not installed. Reinstall doc-to-image. Details: {e}",
+            f"Error: pymupdf not installed. Reinstall doc-to-image. Details: {e}",
             fg=typer.colors.RED,
             err=True,
         )
+        raise typer.Exit(code=3)
+    except FileNotFoundError as e:
+        # Raised by _render_docx when LibreOffice is missing from PATH.
+        typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(code=3)
     except Exception as e:
         typer.secho(

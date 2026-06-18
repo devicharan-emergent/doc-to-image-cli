@@ -11,13 +11,10 @@ dependencies = [
     "pymupdf>=1.24",
 ]
 
-# DOCX rendering uses aspose-words, which only ships wheels for x86_64 Linux,
-# x86_64 macOS, ARM64 macOS, and Windows. On Linux aarch64 (the common pod
-# arch) install would fail outright, so it's an opt-in extra. Without it,
-# the CLI still works for PDF; DOCX returns a clear "aspose-words not
-# installed" error at runtime.
-[project.optional-dependencies]
-docx = ["aspose-words>=24.0"]
+# DOCX rendering shells out to LibreOffice headless (which converts DOCX→PDF;
+# PyMuPDF then renders the PDF). LibreOffice is a system binary, not a Python
+# package — install via the OS package manager (apt/dnf/brew). No Python
+# extras required.
 
 [project.scripts]
 doc-to-image = "doc_to_image.cli:main"
