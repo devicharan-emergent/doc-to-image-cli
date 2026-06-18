@@ -1,0 +1,18 @@
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.whl
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
