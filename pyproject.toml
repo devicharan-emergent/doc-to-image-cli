@@ -9,8 +9,15 @@ license = { text = "Proprietary" }
 dependencies = [
     "typer>=0.12",
     "pymupdf>=1.24",
-    "aspose-words>=24.0",
 ]
+
+# DOCX rendering uses aspose-words, which only ships wheels for x86_64 Linux,
+# x86_64 macOS, ARM64 macOS, and Windows. On Linux aarch64 (the common pod
+# arch) install would fail outright, so it's an opt-in extra. Without it,
+# the CLI still works for PDF; DOCX returns a clear "aspose-words not
+# installed" error at runtime.
+[project.optional-dependencies]
+docx = ["aspose-words>=24.0"]
 
 [project.scripts]
 doc-to-image = "doc_to_image.cli:main"
