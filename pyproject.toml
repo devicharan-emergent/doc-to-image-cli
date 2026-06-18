@@ -1,7 +1,7 @@
 [project]
 name = "doc-to-image"
 version = "0.1.0"
-description = "Convert PDF and DOCX documents to per-page PNG images. CLI for Emergent agents."
+description = "Convert PDF documents to per-page PNG images. CLI for Emergent agents."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Emergent", email = "hey@emergent.sh" }]
@@ -10,11 +10,6 @@ dependencies = [
     "typer>=0.12",
     "pymupdf>=1.24",
 ]
-
-# DOCX rendering shells out to LibreOffice headless (which converts DOCX→PDF;
-# PyMuPDF then renders the PDF). LibreOffice is a system binary, not a Python
-# package — install via the OS package manager (apt/dnf/brew). No Python
-# extras required.
 
 [project.scripts]
 doc-to-image = "doc_to_image.cli:main"
